@@ -1,0 +1,190 @@
+# config/spcx.yaml — SPCX 도메인 사실 + 이벤트 파라미터
+# 출처: 2026-06-10 기준 보도. 구현 시 최신 공시(EDGAR 424B4)로 검증·갱신.
+# 모든 추정/보도 기반 값은 confidence와 source를 함께 둔다.
+
+ticker: SPCX
+exchange: NASDAQ
+company_name: "Space Exploration Technologies Corp."
+edgar_cik: null          # 확인되면 채움 (EDGAR company search)
+
+# --- IPO 핵심 수치 (보도) ---
+ipo:
+  pricing_date: 2026-06-11
+  listing_date: 2026-06-12
+  offer_price_usd: 135.0
+  shares_offered: 556600000
+  proceeds_usd: 75000000000          # ~$750억
+  valuation_usd: 1750000000000       # ~$1.75조
+  oversubscription_x: 2.0            # 약 2배 초과청약 (~$1,500억 수요)
+  retail_allocation_pct: 0.30
+  retail_allocation_usd: 22500000000 # ~$225억
+  free_float_usd: 75000000000        # 초기 유통물량 ~$750억 (보도)
+  source: "press_report 2026-06-10"
+
+# --- 상장 후 총 발행주식 수 (S-1/A 2026-06-03, acc 0001628280-26-040364 검증) ---
+shares:
+  class_a_outstanding: 7380196910        # S-1/A: offering 후 Class A
+  class_b_outstanding: 5695668265        # S-1/A: offering 후 Class B
+  total_shares_outstanding: 13075865175  # Class A + Class B
+  source: "EDGAR S-1/A 2026-06-03 (acc 0001628280-26-040364)"
+
+# --- 나스닥100 패스트 엔트리 규정 (2026-05-01 발효) ---
+nasdaq100:
+  fast_entry_rule_effective: 2026-05-01
+  fast_entry_trading_days: 15          # 상장 후 15거래일 만에 편입 가능
+  market_cap_rank_threshold: 40        # 시총 상위 40위 신규 상장사 대상
+  min_float_requirement: "removed"     # 최소 유통주식 요건 폐지
+  low_float_multiplier_max: 3.0        # 저유통 종목 최대 3x float 가중치 멀티플라이어
+  # 가중치 계산 기반: float 시총 × 멀티플라이어
+  weighting_float_usd: 75000000000     # 유통 시총 $750억
+  weighting_adjusted_usd_max: 225000000000  # 3x → $2,250억 (가중치 계산용)
+  # 나스닥100 전체 시총(가중치 분모). 추정 placeholder — Phase 2에서 실측 갱신.
+  index_total_mcap_usd: 28000000000000 # ~$28조 (추정)
+  index_total_mcap_source: "estimate — needs_review (Phase 2 실측)"
+
+# --- 나스닥100 추종 AUM 추정 (편입 매수 규모 계산용) ---
+# QQQ + QQQM + 연계 뮤추얼/연금. 일별 실측은 Phase 2. 현재는 추정 placeholder.
+tracking_aum:
+  qqq_usd: 320000000000
+  qqqm_usd: 45000000000
+  linked_funds_usd: 185000000000       # 인덱스 뮤추얼펀드/연금/SMA 추정
+  total_estimate_usd: 550000000000     # 합계 ~$550B (추정)
+  source: "estimate — needs_review (Phase 2 운용사 공식 AUM 일별 수집)"
+
+# --- S&P 500 (강제 매수 부재) ---
+sp500:
+  fast_entry_rejected_date: 2026-06-04
+  forced_buy_effective_before: 2027    # SPY/S&P500 연계 강제 매수는 2027까지 사실상 없음
+  note: "2026-06-04 S&P 자체 패스트 엔트리 제안 부결"
+
+# --- 락업 구조 (단계적/staggered) ---
+# 실제 트랜치 구조는 data/extracted/lockup_<acc>.yaml (S-1/A 2026-06-03 추출)에서 적재.
+# 아래 reported_tranches는 extracted 부재 시 fallback (보도 기준 잠정).
+lockup:
+  earnings_date_estimate: 2026-08-15   # 첫 분기(2026Q2) 실적일 (미정, 추정). 확정 시 갱신 → 캘린더 자동 재계산.
+  earnings_date_confirmed: false
+  # 분기 실적일 추정 스케줄 (락업 트랜치의 'Qx results + 2거래일' 트리거 해석용).
+  # 모두 추정(needs_review). 분기말 + 약 45일 보고지연 가정. 확정 시 갱신.
+  earnings_schedule:
+    "2026Q2": 2026-08-15   # First Earnings Release Date (= earnings_date_estimate)
+    "2026Q3": 2026-11-13   # 분기말 9/30 + ~44d (추정)
+    "2026Q4": 2027-02-17   # 분기말 12/31 + ~48d (추정)
+    "2027Q1": 2027-05-13   # 분기말 3/31 + ~43d (추정)
+    "2027Q2": 2027-08-13   # 분기말 6/30 + ~44d (추정)
+    confirmed: false
+  # 보도된 트랜치 (confidence: rule_based, needs_review: true — 원문 미확인)
+  reported_tranches:
+    - id: musk_366d
+      holder_group: "founder_musk"
+      classification: discretionary
+      trigger_type: absolute_days
+      trigger_ref: 366                 # 상장일 + 366일 매도 금지
+      release_fraction: null           # 머스크 보유 비중 미상 → needs_review
+      condition: "366일 매도 금지"
+      confidence: rule_based
+      needs_review: true
+      source: "press_report 2026-06-10"
+    - id: insider_q1_earnings
+      holder_group: "insiders_general"
+      classification: unknown
+      trigger_type: earnings_relative
+      trigger_ref: 2                   # 첫 분기 실적 발표 후 둘째 거래일
+      release_fraction: null           # 트랜치 비율 미상 → 424B4 필요
+      condition: "첫 분기 실적 발표 후 둘째 거래일부터 일부 매도 가능"
+      confidence: rule_based
+      needs_review: true
+      source: "press_report 2026-06-10"
+    # 성과/이벤트 기반 조기 해제 조항 존재 → 424B4 파싱 필요 (현재 미반영)
+
+# --- 알려진 프리IPO 보유자 (분배/매도 압력 후보) ---
+# classification: forced_seller(만기 있는 VC 펀드) / discretionary(영구자본·전략적) / unknown
+holders:
+  - name: "Alphabet (Google)"
+    group: strategic
+    classification: discretionary
+    est_pct: 0.07                      # ~7% 보도
+    has_redemption_obligation: false
+    source: "press_report (~7%)"
+  - name: "Fidelity"
+    group: asset_manager
+    classification: unknown
+    est_pct: null
+    has_redemption_obligation: false
+    source: "press_report"
+  - name: "DXYZ (Destiny Tech100)"
+    group: closed_end_fund
+    classification: discretionary      # 폐쇄형 펀드 — 매도 의무 없음
+    est_pct: null
+    has_redemption_obligation: false
+    note: "폐쇄형 펀드. NAV 대비 시장가 괴리를 리테일 과열 게이지로 사용(C 모듈)."
+    is_dxyz: true
+    source: "config seed"
+  - name: "XOVR (ERShares)"
+    group: spv
+    classification: unknown
+    est_pct: null
+    has_redemption_obligation: false
+    note: "SPV 구조"
+    source: "config seed"
+  - name: "Fundrise VCX"
+    group: evergreen_fund
+    classification: discretionary      # 영구자본 — 매도 의무 없음
+    est_pct: null
+    has_redemption_obligation: false
+    source: "config seed"
+  - name: "Generic VC Growth Funds"
+    group: vc_growth
+    classification: forced_seller      # LP 자본 반환 의무 → 구조적 매도자
+    est_pct: null
+    has_redemption_obligation: true
+    note: "만기 도래 VC 성장펀드 집합. 구조적 매도 압력."
+    source: "config seed"
+
+# --- 나스닥100 상위 비중 종목 (편입 시 비례 재조정 매도 대상 = C모듈 워치리스트) ---
+# 가중치는 근사치(보도/공개 자료 기반). Phase 2에서 운용사 보유내역으로 실측 갱신.
+nasdaq100_top_constituents:
+  weights_source: "estimate — needs_review (Phase 2 QQQ 보유내역 실측)"
+  members:
+    - {ticker: NVDA, weight: 0.089}
+    - {ticker: AAPL, weight: 0.080}
+    - {ticker: MSFT, weight: 0.078}
+    - {ticker: AMZN, weight: 0.055}
+    - {ticker: AVGO, weight: 0.050}
+    - {ticker: META, weight: 0.048}
+    - {ticker: TSLA, weight: 0.030}
+    - {ticker: NFLX, weight: 0.030}
+    - {ticker: COST, weight: 0.027}
+    - {ticker: GOOGL, weight: 0.026}
+    - {ticker: GOOG, weight: 0.025}
+    - {ticker: AMD, weight: 0.018}
+    - {ticker: PEP, weight: 0.016}
+    - {ticker: ADBE, weight: 0.014}
+    - {ticker: LIN, weight: 0.014}
+    - {ticker: CSCO, weight: 0.013}
+    - {ticker: TMUS, weight: 0.013}
+    - {ticker: INTU, weight: 0.012}
+    - {ticker: QCOM, weight: 0.011}
+    - {ticker: TXN, weight: 0.011}
+    - {ticker: AMAT, weight: 0.010}
+    - {ticker: ISRG, weight: 0.010}
+    - {ticker: BKNG, weight: 0.009}
+    - {ticker: HON, weight: 0.009}
+    - {ticker: AMGN, weight: 0.008}
+
+# --- Module B/C 관측 유니버스 ---
+observe:
+  target: SPCX
+  index_etfs: [QQQ, QQQM]                  # 나스닥100 추종 (AUM/리밸런스 관측)
+  thematic_etfs: [UFO, XOVR, ARKX]         # 우주/프리IPO 테마 ETF (리테일 과열 게이지)
+  closed_end: [DXYZ]                        # 폐쇄형 — NAV 프리미엄 게이지
+  btc_etfs: [IBIT, FBTC]                    # BTC 현물 ETF — 크로스에셋 흡수 프록시
+  # 편입 선행매매 탐지 대상 = nasdaq100_top_constituents (별도)
+  zscore_window: 60                         # 롤링 z-score 윈도우(거래일)
+  zscore_flag_threshold: 2.0                # |z| >= 2 비정상
+  event_study_window: {pre: 15, post: 5}    # [T-15, T+5] 이벤트 윈도우
+
+# --- 자기강화 루프 시뮬레이터 가정 (A1) ---
+self_reinforcing:
+  price_impact_coeff: 0.10   # 선형 가정: Δprice% = coeff × (순매수액 / float시총). 단순화, 정교화는 추후.
+  max_iterations: 25
+  convergence_tol_usd: 100000000  # 추가 매수 < $1억이면 수렴

@@ -1,0 +1,94 @@
+# config/sources.yaml — 데이터 소스별 URL, 지연(latency), 갱신주기, 단계(phase)
+# latency_days: 데이터가 현실보다 며칠 늦는가 (신선도 판단에 사용)
+# tier: free | paid  (paid는 인터페이스만)
+# status: active | interface_only
+
+edgar:
+  base_url: "https://www.sec.gov"
+  fulltext_search: "https://efts.sec.gov/LATEST/search-index?q="
+  fulltext_api: "https://efts.sec.gov/LATEST/search-index"
+  submissions: "https://data.sec.gov/submissions/CIK{cik}.json"
+  user_agent: "SPCX-flow-tracker research songjy0100@gmail.com"  # EDGAR 요구: 식별 가능한 UA 필수
+  latency_days: 0          # Form 4/144는 준실시간, 정기공시는 별도
+  cadence: "event-driven"
+  tier: free
+  status: active
+
+series:
+  qqq_holdings:
+    desc: "QQQ 등 Nasdaq100 ETF 일별 보유내역/AUM"
+    source: "Invesco 공식 CSV"
+    url: "https://www.invesco.com/us/financial-products/etfs/holdings/main/holdings/0?audienceType=Investor&action=download&ticker=QQQ"
+    cadence: daily
+    latency_days: 1
+    tier: free
+    status: interface_only   # Phase 2
+    note: "보유내역 diff로 리밸런스 실집행 감지"
+  etf_creation_redemption:
+    desc: "ETF 설정/환매 (QQQ, 우주테마 UFO·XOVR·DXYZ, BTC ETF IBIT·FBTC)"
+    source: "운용사 공시 + shares outstanding 변화"
+    cadence: daily
+    latency_days: 1
+    tier: free
+    status: interface_only
+    note: "BTC ETF 유출 = 크로스에셋 유동성 흡수 프록시"
+  ohlcv:
+    desc: "SPCX/관련 종목 OHLCV·거래량"
+    source: "yfinance"
+    cadence: daily
+    latency_days: 0
+    tier: free
+    status: interface_only   # Phase 2 (상장 후)
+  short_interest:
+    desc: "공매도 잔고"
+    source: "FINRA short interest"
+    url: "https://www.finra.org/finra-data/browse-catalog/equity-short-interest"
+    cadence: biweekly
+    latency_days: 7
+    tier: free
+    status: interface_only
+  borrow_fee:
+    desc: "대차 수수료"
+    source: "IBKR API"
+    cadence: daily
+    latency_days: 0
+    tier: paid
+    status: interface_only   # 계정 없음 → 인터페이스만
+  ats_darkpool:
+    desc: "다크풀/ATS 체결 비중"
+    source: "FINRA OTC Transparency"
+    url: "https://otctransparency.finra.org/otctransparency/AtsIssueData"
+    cadence: weekly
+    latency_days: 21         # 2~4주 지연
+    tier: free
+    status: interface_only
+  options:
+    desc: "옵션 OI / IV / 풋콜비 (SPCX 옵션 상장 후)"
+    source: "yfinance options / CBOE 지연"
+    cadence: daily
+    latency_days: 0
+    tier: free
+    status: interface_only   # Phase 3
+  mmf_flows:
+    desc: "MMF 자금 플로우"
+    source: "ICI 주간 통계"
+    url: "https://www.ici.org/research/stats/mmf"
+    cadence: weekly
+    latency_days: 3
+    tier: free
+    status: interface_only
+  margin_debt:
+    desc: "마진 부채"
+    source: "FINRA margin statistics"
+    url: "https://www.finra.org/investors/learn-to-invest/advanced-investing/margin-statistics"
+    cadence: monthly
+    latency_days: 30
+    tier: free
+    status: interface_only
+  insider_form4_144:
+    desc: "내부자 매도 (Form 4/144)"
+    source: "EDGAR (A3와 공유)"
+    cadence: realtime
+    latency_days: 0
+    tier: free
+    status: interface_only   # Phase 2 watcher

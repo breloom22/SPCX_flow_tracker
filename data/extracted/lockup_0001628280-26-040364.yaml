@@ -1,0 +1,204 @@
+# 락업 트랜치 추출 — Claude Code 운영 세션 산출물 (스펙 §5)
+# 검증: src/schemas.py:LockupExtraction (Pydantic). 파이프라인이 재검증 후에만 적재.
+#
+# 주의:
+# - 모든 release_shares는 원문의 "Up to N million shares" (상한). 예측 매도량이 아님.
+# - absolute_days 트리거의 anchor = 'date of this prospectus' ≈ 프라이싱일(2026-06-11).
+#   (S-1/A에는 최종 prospectus 날짜 미확정. 424B4 확정 시 1일 내외 보정 → needs_review 성격)
+# - earnings_relative 트리거의 분기 실적일은 config/spcx.yaml:lockup.earnings_schedule(추정)로 해석.
+# - 이 문서는 S-1/A(2026-06-03)이며 최종 424B4가 아님. 가격 확정/정정 시 재추출.
+
+schema_version: 1
+ticker: SPCX
+
+provenance:
+  source_accession: "0001628280-26-040364"
+  source_url: "https://www.sec.gov/Archives/edgar/data/1181412/000162828026040364"
+  extracted_at: 2026-06-10T14:30:00
+  extracted_by: claude-code
+  confidence: rule_based   # 트랜치 구조·물량 상한은 원문 명시; 일부 날짜는 추정 실적일에 의존
+  source_quote: >-
+    "these restricted securities will be available for sale in the public market as follows
+    (assuming no exercise of outstanding stock options subsequent to March 31, 2026 and no
+    settlement of RSUs and RSAs): ... The second full trading day on Nasdaq immediately
+    following the First Earnings Release Date — Up to 911.5 million shares ...
+    366 th day after the date of this prospectus — Up to 6.4 billion shares ... representing
+    all shares held by Mr. Musk. ... Mr. Musk has agreed ... during a period of 366 days
+    after the date of this prospectus ... Shares held by Mr. Musk will not be subject to any
+    early release provisions. Together, the shares subject to these restrictions for over one
+    year include an aggregate of 7.8 billion shares owned (including 100% of the shares owned
+    by Mr. Musk), representing approximately 60% of our shares outstanding."
+
+earnings_date_estimate: null      # 원문에 절대일자 없음 → config earnings_schedule 추정 사용
+earnings_date_confirmed: false
+
+tranches:
+  # 1) First Earnings Release Date + 2거래일 : 180일 락업분 1차 해제
+  - id: t01_first_earnings_180d
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: earnings_relative
+    trigger_ref: "2026Q2|2"
+    condition: "First Earnings Release Date 후 둘째 거래일. 180일 락업 대상 해제분. 어피리에이트 제외. (원문: Up to 911.5M)"
+    release_shares: 911500000
+    needs_review: false
+
+  # 2) 주가 조건부 추가 해제 (Additional Release Shares) — 날짜 미정
+  - id: t02_additional_release_price_cond
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: price_condition
+    trigger_ref: "closing >= 130% of offer price for >=5 of 10 consecutive trading days ending on First Earnings Release Date; releases on 2nd full trading day after First Earnings Release Date"
+    condition: "주가 조건 충족 시(공모가 대비 +30% 이상, 첫 실적일까지 10거래일 중 5거래일) First Earnings+2거래일 해제. (원문: Up to 455.8M Additional Release Shares). 조건 미충족 시 미해제 → 날짜 미정."
+    release_shares: 455800000
+    needs_review: true
+
+  # 3) 70th day
+  - id: t03_day70_7pct
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "70"
+    condition: "프라이싱일+70일. 180일 락업분의 7%. 어피리에이트 제외. (Up to 319.0M)"
+    release_shares: 319000000
+    needs_review: false
+
+  # 4) 90th day
+  - id: t04_day90_7pct
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "90"
+    condition: "프라이싱일+90일. 180일 락업분의 7%. 어피리에이트 제외. (Up to 319.0M)"
+    release_shares: 319000000
+    needs_review: false
+
+  # 5) 91st day — 어피리에이트분
+  - id: t05_day91_affiliates
+    holder_group: affiliates_180d
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "91"
+    condition: "프라이싱일+91일. Rule 144상 어피리에이트 보유 180일 락업분. (Up to 59.1M)"
+    release_shares: 59100000
+    needs_review: false
+
+  # 6) 105th day
+  - id: t06_day105_7pct
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "105"
+    condition: "프라이싱일+105일. 180일 락업분의 7%. (Up to 328.4M)"
+    release_shares: 328400000
+    needs_review: false
+
+  # 7) 120th day
+  - id: t07_day120_7pct
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "120"
+    condition: "프라이싱일+120일. 180일 락업분의 7%. (Up to 328.4M)"
+    release_shares: 328400000
+    needs_review: false
+
+  # 8) 135th day
+  - id: t08_day135_7pct
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "135"
+    condition: "프라이싱일+135일. 180일 락업분의 7%. (Up to 328.4M)"
+    release_shares: 328400000
+    needs_review: false
+
+  # 9) Q3 2026 결과 + 2거래일 : 28% 대량 해제
+  - id: t09_q3_2026_earnings_28pct
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: earnings_relative
+    trigger_ref: "2026Q3|2"
+    condition: "2026Q3(9/30 분기) 실적 발표 후 둘째 거래일. 180일 락업분의 28%. (Up to 1.3B)"
+    release_shares: 1300000000
+    needs_review: false
+
+  # 10) 180th day — 잔여 180일 락업분 (조건부 물량). 보수적 하한(328.4M) 적재.
+  - id: t10_day180_remaining
+    holder_group: general_180d
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "180"
+    condition: "프라이싱일+180일. 잔여 180일 락업분. 원문: (i) Additional Release Shares가 First Earnings에 해제됐으면 328.4M, (ii) 아니면 up to 797.6M. 보수적으로 328.4M 적재."
+    release_shares: 328400000
+    needs_review: true
+
+  # 11) Q4 2026 결과 + 2거래일 : extended(머스크 제외) 20%
+  - id: t11_q4_2026_earnings_20pct
+    holder_group: extended_other_than_musk
+    classification: unknown
+    trigger_type: earnings_relative
+    trigger_ref: "2026Q4|2"
+    condition: "2026Q4(12/31 분기) 실적 발표 후 둘째 거래일. 연장 락업분(머스크 제외)의 20%. (Up to 351.9M)"
+    release_shares: 351900000
+    needs_review: false
+
+  # 12) 280th day — extended 10%
+  - id: t12_day280_10pct
+    holder_group: extended_other_than_musk
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "280"
+    condition: "프라이싱일+280일. 연장 락업분(머스크 제외)의 10%. (Up to 176.0M)"
+    release_shares: 176000000
+    needs_review: false
+
+  # 13) Q1 2027 결과 + 2거래일 : extended 20%
+  - id: t13_q1_2027_earnings_20pct
+    holder_group: extended_other_than_musk
+    classification: unknown
+    trigger_type: earnings_relative
+    trigger_ref: "2027Q1|2"
+    condition: "2027Q1(3/31 분기) 실적 발표 후 둘째 거래일. 연장 락업분(머스크 제외)의 20%. (Up to 351.9M)"
+    release_shares: 351900000
+    needs_review: false
+
+  # 14) 340th day — extended 10%
+  - id: t14_day340_10pct
+    holder_group: extended_other_than_musk
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "340"
+    condition: "프라이싱일+340일. 연장 락업분(머스크 제외)의 10%. (Up to 176.0M)"
+    release_shares: 176000000
+    needs_review: false
+
+  # 15) 366th day — extended 20%
+  - id: t15_day366_extended_20pct
+    holder_group: extended_other_than_musk
+    classification: unknown
+    trigger_type: absolute_days
+    trigger_ref: "366"
+    condition: "프라이싱일+366일. 연장 락업분(머스크 제외)의 20%. (Up to 351.9M)"
+    release_shares: 351900000
+    needs_review: false
+
+  # 16) 366th day — 머스크 전량 (조기해제 없음)
+  - id: t16_day366_musk_all
+    holder_group: founder_musk
+    classification: discretionary
+    trigger_type: absolute_days
+    trigger_ref: "366"
+    condition: "프라이싱일+366일. 머스크 보유 전량(Class B 전환 포함, 옵션 기초 3.5억주 포함). 조기해제 조항 없음. (Up to 6.4B)"
+    release_shares: 6400000000
+    needs_review: false
+
+  # 17) Q2 2027 결과 + 2거래일 : extended 잔여
+  - id: t17_q2_2027_earnings_remaining
+    holder_group: extended_other_than_musk
+    classification: unknown
+    trigger_type: earnings_relative
+    trigger_ref: "2027Q2|2"
+    condition: "2027Q2(6/30 분기) 실적 발표 후 둘째 거래일. 연장 락업분 잔여 전량. (Up to 351.9M)"
+    release_shares: 351900000
+    needs_review: false

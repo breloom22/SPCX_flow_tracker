@@ -1,0 +1,15 @@
+# 데이터 + 비밀키 + 가상환경 (스펙 §6)
+.venv/
+.env
+# data/ 는 무시하되, Claude가 추출한 큐레이션 YAML(data/extracted/*.yaml)은 버전관리.
+# raw 캐시·inbox 원문·DuckDB는 계속 제외.
+data/*
+!data/extracted/
+data/extracted/*
+!data/extracted/*.yaml
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+# 리포트는 샘플 1건만 추적, 일별 산출물은 무시하려면 아래 주석 해제
+# reports/*.md
