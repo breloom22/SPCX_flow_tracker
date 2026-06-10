@@ -31,6 +31,10 @@ daily 실행 순서: ingest → observe(B) → compute(A) → infer(C) → fresh
    - 모호한 조항은 임의 해석 금지 → `needs_review: true` 로 두고 사용자에게 질문.
 3. `python run.py daily` 재실행 → 파이프라인이 extracted를 Pydantic 재검증 후 적재 →
    최종 리포트 확인 → 특이사항을 사용자에게 보고.
+4. **그날의 해석 작성**: 리포트를 읽고 `reports/<날짜>.interp.md` 에 "오늘의 읽기"(핵심 변화·
+   주의점·다음 할 일)를 작성 → `report` 재실행 시 리포트 **§0**에 자동 포함된다(파이프라인 LLM 미호출).
+   - 각 섹션 헤더 밑 "📖 읽는 법"은 코드가 붙이는 **정적** 해설(`src/report/daily.py: _HOWTO`).
+     그날그날의 **동적** 판단은 이 interp 파일이 담당 — 둘을 혼동하지 말 것.
 
 ## Claude Code 담당 추출 작업 (§5)
 1. **락업 조항 → 트랜치 스키마** (`data/extracted/lockup_<acc>.yaml`, `LockupExtraction`).
@@ -40,7 +44,8 @@ daily 실행 순서: ingest → observe(B) → compute(A) → infer(C) → fresh
    - `observe`가 신규 Form 4/144를 inbox 캐시 → 각주 읽고 분류. 락업 해제 후(8월~) 핵심.
 3. **나스닥/지수 보도자료** → 편입일·실적일 확정값 (`EventExtraction`) → 이벤트 캘린더 갱신.
    - `observe`의 NasdaqInclusionMonitor가 편입 발표 후보를 inbox 캐시 → 추출.
-4. (선택) 리포트 말미 서술 요약.
+4. **리포트 §0 "오늘의 읽기" 서술** → `reports/<날짜>.interp.md` (위 일일 루틴 4단계). 데이터 나열에
+   해석을 입히는 레이어. 정적 "읽는 법"은 `_HOWTO`, 동적 판단은 interp 파일.
 
 ## 트레이드오프
 - 추출 지연 하한 = 세션 주기(일 1회). **락업 해제 주간(8월)에는 하루 2회 세션을 사용자에게 제안.**

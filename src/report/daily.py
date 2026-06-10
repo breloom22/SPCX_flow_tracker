@@ -34,9 +34,46 @@ def _pct(x: float | None, d=2) -> str:
     return "—" if x is None else f"{x*100:.{d}f}%"
 
 
+# ── 정적 "읽는 법" 캡션 (결정적 보일러플레이트 — 파이프라인 내 LLM 호출 아님, §7 준수) ──
+# 매일 동일한 해설. 그날그날의 판단은 reports/<날짜>.interp.md (Claude 작성)에서 다룬다.
+_HOWTO: dict[str, str] = {
+    "1": "각 행 = 다가오는 확정/추정 이벤트. **기계적 자금** = 그날 강제로 움직이는 패시브·락업 "
+         "금액(=예측 매도액이 **아님**, 잠재 규모). `⚠︎추정`=날짜 미확정, `🔎review`=조항 해석 보류. "
+         "D-N은 미국 거래일 기준 카운트다운.",
+    "2": "**이 시스템의 핵심 섹션.** 읽는 축은 비대칭이다 — 기계적 **매수 여력**(편입, 수 B$ 규모, "
+         "확정에 가깝고 작음) vs 기계적 **매도 여력**(락업 overhang, float의 수십 배, 크고 시점만 "
+         "트리거에 달림). '얼마가 언제 움직일 수밖에 없는가'를 본다.",
+    "2a": "편입 시 패시브 펀드의 강제 매수 추정. 변동의 **지배 변수는 멀티플라이어**(저유통 가중치 "
+          "배수; 1x→3x면 매수액 4배) — base 한 줄이 아니라 **범위**로 읽을 것. 아래 '펀딩 매도' 표 = "
+          "편입 재원 마련을 위해 기존 지수종목에서 팔릴 후보 → 4a 선행매매 워치리스트가 된다.",
+    "2b": "**overhang = 누적 해제'가능' 주식 ÷ IPO float.** 100% 초과 = float 전체보다 많은 물량이 "
+          "매도 가능 상태라는 뜻 (실제 매도가 아니라 **공급 압력의 상한**). 주목 포인트: 첫 큰 절벽 "
+          "해제일과, 주가 강세 시 물량이 앞당겨 풀리는 `price_condition` 트랜치.",
+    "2c": "`forced_seller`(만기 있는 VC 펀드) = 구조적 매도자. 보유분이 '미상'이면 매도압력 정량화 "
+          "불가(needs_review → 13F/N-PORT로 채움). `discretionary`(영구자본·전략적 보유)는 매도 의무 없음.",
+    "3": "상장 전이면 SPCX 자체 값(close/volume/옵션)은 **placeholder이므로 무시**. 의미 있는 건 "
+         "**주변 종목**(테마·지수 ETF, 펀딩매도 후보)의 z-score 이상. |z|≥2 = 평소 대비 2σ 이탈 = "
+         "'비정상'. 이는 정황이지 확정 신호가 아니다.",
+    "4": "**전부 `inferred`** — '확정 이벤트(2번 캘린더) *이전에* 누군가 먼저 움직인 흔적이 있는가'의 "
+         "정황 추정. 상장 초기엔 히스토리 부족으로 대부분 **예열 상태(워치리스트만 켜짐)**. "
+         "여기 숫자를 신호로 단정하지 말 것.",
+    "5": "**`active` 시리즈만 결론 근거로 신뢰.** `interface_only`=어댑터만 있고 미연결, `stale`=소스 "
+         "차단/실패(값 없음). 리포트가 풍부해 보여도 실가동 중인 소스가 무엇인지 항상 여기서 확인.",
+}
+
+
+def _howto(A, key: str) -> None:
+    """섹션 헤더 밑에 고정 해설 블록쿼트를 출력."""
+    txt = _HOWTO.get(key)
+    if txt:
+        A(f"> 📖 **읽는 법** · {txt}")
+        A("")
+
+
 def build_report(con, cfg: dict, today: date, *,
                  inbox_summary: dict | None = None,
-                 lockup_mode: str = "config_reported") -> str:
+                 lockup_mode: str = "config_reported",
+                 interp_md: str | None = None) -> str:
     L: list[str] = []
     A = L.append
 
@@ -47,9 +84,23 @@ def build_report(con, cfg: dict, today: date, *,
       f"신뢰도 태그: **deterministic**(계산) / **rule_based**(규칙·보도) / **inferred**(추론)")
     A("")
 
+    # ---------- 0. 오늘의 읽기 (Claude Code 서술 — reports/<날짜>.interp.md) ----------
+    # 파이프라인은 LLM을 호출하지 않는다(§5/§7). Claude Code가 운영 세션에서 작성한
+    # 서술 파일이 있으면 그대로 포함하고, 없으면 작성 안내만 둔다.
+    A("## 0. 오늘의 읽기 (Claude Code 서술)")
+    A("")
+    if interp_md and interp_md.strip():
+        A(interp_md.strip())
+    else:
+        A("> _아직 작성되지 않음. Claude Code 작업: 이 리포트를 읽고 "
+          f"`reports/{today.isoformat()}.interp.md` 에 그날의 해석(핵심 변화·주의·다음 할 일)을 "
+          "작성하면 다음 `daily` 실행 시 여기에 포함된다. 정적 '읽는 법'은 각 섹션 헤더 밑 참조._")
+    A("")
+
     # ---------- 1. 카운트다운 ----------
     A("## 1. 이벤트 카운트다운 (D-N)")
     A("")
+    _howto(A, "1")
     ev = con.execute(
         "SELECT event_id, event_date, event_type, magnitude_usd, confidence, "
         "is_estimate, needs_review, notes FROM events "
@@ -75,6 +126,7 @@ def build_report(con, cfg: dict, today: date, *,
     # ---------- 2. 기계적 플로우 현황 ----------
     A("## 2. 기계적 플로우 현황")
     A("")
+    _howto(A, "2")
 
     # 2a. 편입 매수 (base + 시나리오)
     base = con.execute(
@@ -82,6 +134,7 @@ def build_report(con, cfg: dict, today: date, *,
         "FROM index_flow_estimates WHERE as_of_date=? AND scenario='base'", [today]
     ).fetchone()
     A("### 2a. 나스닥100 편입 매수 추정 (Module A1)")
+    _howto(A, "2a")
     if base:
         w, buy, aum, mult = base
         A(f"- **base 시나리오**: 가중치 **{_pct(w,3)}** → 편입 매수 **{_usd(buy)}**  "
@@ -128,6 +181,7 @@ def build_report(con, cfg: dict, today: date, *,
 
     # 2b. 락업
     A("### 2b. 락업 누적 해제 (Module A2)")
+    _howto(A, "2b")
     src_note = ("EDGAR 공시 추출(extracted)" if lockup_mode == "extracted"
                 else "**config 보도구조 (원문 미확인 · rule_based · needs_review)**")
     A(f"- 데이터 소스: {src_note}")
@@ -170,6 +224,7 @@ def build_report(con, cfg: dict, today: date, *,
 
     # 2c. 구조적 매도자
     A("### 2c. 보유자 / 구조적 매도 압력 (Module A3)")
+    _howto(A, "2c")
     hl = con.execute(
         "SELECT classification, COUNT(*), "
         "SUM(CASE WHEN est_shares IS NOT NULL THEN est_shares ELSE 0 END) "
@@ -194,6 +249,7 @@ def build_report(con, cfg: dict, today: date, *,
     # ---------- 3. 관측 요약 ----------
     A("## 3. 관측 요약 (Module B)")
     A("")
+    _howto(A, "3")
     obs_n = con.execute("SELECT COUNT(*) FROM observations").fetchone()[0]
     n_series = con.execute("SELECT COUNT(DISTINCT series) FROM observations").fetchone()[0]
     if obs_n:
@@ -251,6 +307,7 @@ def build_report(con, cfg: dict, today: date, *,
     # ---------- 4. 추론 섹션 ----------
     A("## 4. 추론 섹션 (Module C — 모두 `inferred`)")
     A("")
+    _howto(A, "4")
 
     def _inf(name):
         return con.execute(
@@ -317,6 +374,7 @@ def build_report(con, cfg: dict, today: date, *,
     # ---------- 5. 데이터 신선도 ----------
     A("## 5. 데이터 신선도")
     A("")
+    _howto(A, "5")
     fr = con.execute(
         "SELECT series, last_updated, known_latency_days, status, notes "
         "FROM data_freshness ORDER BY status, series"

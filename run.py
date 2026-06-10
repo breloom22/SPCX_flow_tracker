@@ -235,7 +235,11 @@ def cmd_report(con, cfg, sources, ingest_summary=None, lockup_mode=None):
             "SELECT COUNT(*) FROM lockup_tranches WHERE source <> 'config_reported'"
         ).fetchone()
         lockup_mode = "extracted" if row and row[0] > 0 else "config_reported"
-    md = build_report(con, cfg, today, inbox_summary=ingest_summary, lockup_mode=lockup_mode)
+    # Claude Code가 작성한 '오늘의 읽기' 서술 파일이 있으면 포함 (파이프라인은 LLM 미호출, §5/§7).
+    interp_path = REPORTS_DIR / f"{today.isoformat()}.interp.md"
+    interp_md = interp_path.read_text(encoding="utf-8") if interp_path.exists() else None
+    md = build_report(con, cfg, today, inbox_summary=ingest_summary,
+                      lockup_mode=lockup_mode, interp_md=interp_md)
     out = REPORTS_DIR / f"{today.isoformat()}.md"
     out.write_text(md, encoding="utf-8")
     print(f"[report] 생성: {out}")
